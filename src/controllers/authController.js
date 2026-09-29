@@ -1,5 +1,10 @@
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/client.ts';
+
+function createToken(user) {
+    return jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+}
 
 function publicUser(user) {
     return {
@@ -63,8 +68,11 @@ export async function registerUser(req, res) {
             data: { username, displayname, email, password: passwordHash },
         });
 
-        req.session.user = publicUser(user);
-        return res.status(201).json({ success: true, user: req.session.user });
+        return res.status(201).json({
+            success: true,
+            token: createToken(user),
+            user: publicUser(user),
+        });
     } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
     }
@@ -98,35 +106,46 @@ export async function login(req, res) {
             return res.status(401).json({ success: false, error: 'Credenciais inválidas.' });
         }
 
-        req.session.user = publicUser(user);
-        return res.json({ success: true, user: req.session.user });
+        return res.json({
+            success: true,
+            token: createToken(user),
+            user: publicUser(user),
+        });
     } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
     }
 }
 
 export function logout(req, res) {
-    req.session.destroy(err => {
-        if (err) {
-            return res.status(500).json({ success: false, error: err.message });
+    return res.json({ success: true });
+}
+
+export async function getCurrentUser(req, res) {
+    try {
+        const user = await prisma.user.findUnique({ where: { id: req.userId } });
+
+        if (!user || user.deleted) {
+            return res.status(401).json({ success: false, error: 'Usuário não autenticado.' });
         }
 
-        res.clearCookie('connect.sid');
-        return res.json({ success: true });
-    });
+        return res.json({ success: true, user: publicUser(user) });
+    } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+    }
 }
 
-export function getCurrentUser(req, res) {
-    if (!req.session.user?.id) {
-        return res.status(401).json({ success: false, error: 'Usuário não autenticado.' });
+export async function checkAuth(req, res) {
+    let user = null;
+
+    if (req.userId) {
+        const record = await prisma.user.findUnique({ where: { id: req.userId } });
+        if (record && !record.deleted) {
+            user = publicUser(record);
+        }
     }
 
-    return res.json({ success: true, user: req.session.user });
-}
-
-export function checkAuth(req, res) {
     return res.json({
-        loggedIn: Boolean(req.session.user?.id),
-        user: req.session.user || null,
+        loggedIn: Boolean(user),
+        user,
     });
 }

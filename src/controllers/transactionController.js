@@ -23,7 +23,7 @@ function parseTransaction(body) {
 export async function listTransactions(req, res) {
     try {
         const transactions = await prisma.transaction.findMany({
-            where: { userid: req.session.user.id },
+            where: { userid: req.userId },
             orderBy: { id: 'desc' },
         });
         return res.json(transactions);
@@ -41,7 +41,7 @@ export async function createTransaction(req, res) {
         }
 
         const transaction = await prisma.transaction.create({
-            data: { ...parsed.data, userid: req.session.user.id },
+            data: { ...parsed.data, userid: req.userId },
         });
         return res.status(201).json(transaction);
     } catch (err) {
@@ -59,7 +59,7 @@ export async function updateTransaction(req, res) {
             return res.status(400).json({ success: false, error });
         }
 
-        const where = { id, userid: req.session.user.id };
+        const where = { id, userid: req.userId };
         const result = await prisma.transaction.updateMany({
             where,
             data: parsed.data,
@@ -85,7 +85,7 @@ export async function deleteTransaction(req, res) {
         }
 
         const result = await prisma.transaction.deleteMany({
-            where: { id, userid: req.session.user.id },
+            where: { id, userid: req.userId },
         });
 
         if (result.count === 0) {

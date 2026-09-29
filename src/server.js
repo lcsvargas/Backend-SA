@@ -1,5 +1,5 @@
 import express from 'express';
-import session from 'express-session';
+import 'dotenv/config';
 import cors from 'cors';
 import clr from 'connect-livereload';
 import { pathToFileURL } from 'node:url';
@@ -26,18 +26,6 @@ app.use(cors({
     credentials: true,
 }));
 
-app.use(session({
-    secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: false,
-        maxAge: 1000 * 60 * 60 * 24,
-    },
-}));
-
 app.use(express.static('public'));
 app.use(clr());
 app.use(express.json());
@@ -48,6 +36,10 @@ export default app;
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
     try {
+        if (!process.env.JWT_SECRET) {
+            throw new Error('JWT_SECRET não está definida no .env.');
+        }
+
         await prisma.$connect();
         app.listen(port, () => {
             console.log(`Running on http://localhost:${port}`);
