@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import jwt from 'jsonwebtoken';
 import { after, test } from 'node:test';
 import app from './server.js';
 import { prisma } from './lib/client.ts';
@@ -33,10 +34,13 @@ test('JWT authentication protects user and transaction routes and isolates CRUD 
     assert.equal(unauthorizedResponse.status, 401);
     const invalidTokenResponse = await request('/auth/me', { token: 'invalid-token' });
     assert.equal(invalidTokenResponse.status, 401);
+    const expiredToken = jwt.sign({ userId: 1 }, process.env.JWT_SECRET, { expiresIn: '-1s' });
+    const expiredTokenResponse = await request('/auth/me', { token: expiredToken });
+    assert.equal(expiredTokenResponse.status, 401);
     const unauthorizedTransactionResponse = await request('/transactions');
     assert.equal(unauthorizedTransactionResponse.status, 401);
 
-    const registerResponse = await request('/register', {
+    const registerResponse = await request('/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: firstUsername, email: firstEmail, password: 'test-password' }),
@@ -50,7 +54,7 @@ test('JWT authentication protects user and transaction routes and isolates CRUD 
     assert.ok(registerBody.token);
     assert.equal(registerResponse.headers.has('set-cookie'), false);
 
-    const loginResponse = await request('/login', {
+    const loginResponse = await request('/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: firstEmail, password: 'test-password' }),
@@ -138,6 +142,13 @@ test('JWT authentication protects user and transaction routes and isolates CRUD 
     const finalListResponse = await request('/transactions', { token: loginBody.token });
     assert.equal(finalListResponse.status, 200);
     assert.deepEqual(await finalListResponse.json(), []);
+
+    const logoutResponse = await request('/auth/logout', {
+        method: 'POST',
+        token: loginBody.token,
+    });
+    assert.equal(logoutResponse.status, 200);
+    assert.deepEqual(await logoutResponse.json(), { success: true });
 });
 
 after(async () => {
