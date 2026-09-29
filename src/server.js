@@ -1,14 +1,12 @@
-const express = require('express');
-const session = require('express-session');
-const cors = require('cors');
-const clr = require('connect-livereload');
-const bcrypt = require('bcrypt');
-
-const db = require('./database');
+import express from 'express';
+import session from 'express-session';
+import cors from 'cors';
+import clr from 'connect-livereload';
+import bcrypt from 'bcrypt';
+import { prisma } from './lib/client.ts';
 
 const app = express();
 const port = process.env.PORT || 3000;
-const saltRounds = 10;
 
 const allowedOrigins = [
     'http://localhost:5173',
@@ -94,19 +92,23 @@ async function registerUser(req, res) {
             return res.status(400).json({ success: false, error: validationError });
         }
 
-        const existing = db.prepare(
-            'SELECT id FROM users WHERE LOWER(email) = ? OR LOWER(username) = ?'
-        ).get(email, username.toLowerCase());
+        const existing = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { email },
+                    { username: { equals: username, mode: 'insensitive' } },
+                ],
+            },
+        });
 
         if (existing) {
             return res.status(409).json({ success: false, error: 'Usuário ou e-mail já cadastrado.' });
         }
 
-        const passwordHash = await bcrypt.hash(password, saltRounds);
-        const result = db.prepare(
-            'INSERT INTO users (username, displayname, email, password) VALUES (?, ?, ?, ?)'
-        ).run(username, displayname, email, passwordHash);
-        const user = db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
+        const passwordHash = await bcrypt.hash(password, 10);
+        const user = await prisma.user.create({
+            data: { username, displayname, email, password: passwordHash },
+        });
 
         req.session.user = publicUser(user);
         return res.status(201).json({ success: true, user: req.session.user });
@@ -127,9 +129,14 @@ app.post('/login', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Informe e-mail/usuário e senha.' });
         }
 
-        const user = db.prepare(
-            'SELECT * FROM users WHERE LOWER(email) = ? OR LOWER(username) = ?'
-        ).get(identifier, identifier);
+        const user = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { email: identifier },
+                    { username: { equals: identifier, mode: 'insensitive' } },
+                ],
+            },
+        });
 
         if (!user || user.deleted) {
             return res.status(401).json({ success: false, error: 'Credenciais inválidas.' });
@@ -174,30 +181,38 @@ app.get('/api/check-auth', (req, res) => {
     });
 });
 
-app.get('/transactions', requireAuth, (req, res) => {
+app.get('/transactions', requireAuth, async (req, res) => {
     try {
-        const trs = db.prepare(
-            'SELECT * FROM transactions WHERE userid = ? ORDER BY id DESC'
-        ).all(req.session.user.id);
+        const trs = await prisma.transaction.findMany({
+            where: { userid: req.session.user.id },
+            orderBy: { id: 'desc' },
+        });
         return res.json(trs);
     } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
     }
 });
 
-app.post('/transactions', requireAuth, (req, res) => {
+app.post('/transactions', requireAuth, async (req, res) => {
     try {
         const { categoria, descricao, valor, data, tipo } = req.body;
+        const amount = Number(valor);
+        const transactionDate = new Date(data);
 
-        if (!categoria || !descricao || !data || !['entrada', 'saida'].includes(tipo) || Number(valor) <= 0) {
+        if (!categoria || !descricao || !data || !['entrada', 'saida'].includes(tipo) || !Number.isFinite(amount) || amount <= 0 || Number.isNaN(transactionDate.getTime())) {
             return res.status(400).json({ success: false, error: 'Dados da transação inválidos.' });
         }
 
-        const result = db.prepare(
-            'INSERT INTO transactions (userid, categoria, descricao, valor, data, tipo) VALUES (?, ?, ?, ?, ?, ?)'
-        ).run(req.session.user.id, categoria, descricao, Number(valor), data, tipo);
-        const nova = db.prepare('SELECT * FROM transactions WHERE id = ? AND userid = ?')
-            .get(result.lastInsertRowid, req.session.user.id);
+        const nova = await prisma.transaction.create({
+            data: {
+                userid: req.session.user.id,
+                categoria,
+                descricao,
+                valor: amount,
+                data: transactionDate,
+                tipo,
+            },
+        });
 
         return res.status(201).json(nova);
     } catch (err) {
@@ -205,36 +220,53 @@ app.post('/transactions', requireAuth, (req, res) => {
     }
 });
 
-app.put('/transactions/:id', requireAuth, (req, res) => {
+app.put('/transactions/:id', requireAuth, async (req, res) => {
     try {
         const { categoria, descricao, valor, data, tipo } = req.body;
+        const id = Number(req.params.id);
+        const amount = Number(valor);
+        const transactionDate = new Date(data);
 
-        if (!categoria || !descricao || !data || !['entrada', 'saida'].includes(tipo) || Number(valor) <= 0) {
+        if (!Number.isInteger(id) || id <= 0 || !categoria || !descricao || !data || !['entrada', 'saida'].includes(tipo) || !Number.isFinite(amount) || amount <= 0 || Number.isNaN(transactionDate.getTime())) {
             return res.status(400).json({ success: false, error: 'Dados da transação inválidos.' });
         }
 
-        const result = db.prepare(
-            'UPDATE transactions SET categoria = ?, descricao = ?, valor = ?, data = ?, tipo = ? WHERE id = ? AND userid = ?'
-        ).run(categoria, descricao, Number(valor), data, tipo, req.params.id, req.session.user.id);
+        const where = { id, userid: req.session.user.id };
+        const result = await prisma.transaction.updateMany({
+            where,
+            data: {
+                categoria,
+                descricao,
+                valor: amount,
+                data: transactionDate,
+                tipo,
+            },
+        });
 
-        if (result.changes === 0) {
+        if (result.count === 0) {
             return res.status(404).json({ success: false, error: 'Transação não encontrada.' });
         }
 
-        const trs = db.prepare('SELECT * FROM transactions WHERE id = ? AND userid = ?')
-            .get(req.params.id, req.session.user.id);
+        const trs = await prisma.transaction.findFirst({ where });
         return res.json(trs);
     } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
     }
 });
 
-app.delete('/transactions/:id', requireAuth, (req, res) => {
+app.delete('/transactions/:id', requireAuth, async (req, res) => {
     try {
-        const result = db.prepare('DELETE FROM transactions WHERE id = ? AND userid = ?')
-            .run(req.params.id, req.session.user.id);
+        const id = Number(req.params.id);
 
-        if (result.changes === 0) {
+        if (!Number.isInteger(id) || id <= 0) {
+            return res.status(404).json({ success: false, error: 'Transação não encontrada.' });
+        }
+
+        const result = await prisma.transaction.deleteMany({
+            where: { id, userid: req.session.user.id },
+        });
+
+        if (result.count === 0) {
             return res.status(404).json({ success: false, error: 'Transação não encontrada.' });
         }
 
@@ -244,6 +276,17 @@ app.delete('/transactions/:id', requireAuth, (req, res) => {
     }
 });
 
-app.listen(port, () => {
-    console.log(`Running on http://localhost:${port}`);
-});
+async function startServer() {
+    try {
+        await prisma.$connect();
+        app.listen(port, () => {
+            console.log(`Running on http://localhost:${port}`);
+        });
+    } catch (error) {
+        console.error('Failed to connect to the database:', error);
+        await prisma.$disconnect();
+        process.exitCode = 1;
+    }
+}
+
+startServer();
