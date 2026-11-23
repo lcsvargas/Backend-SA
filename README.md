@@ -1,5 +1,11 @@
 # FinançaS --- Documentação do Backend
 
+## Configuração de produção
+
+Defina `DATABASE_URL`, `JWT_SECRET` (mínimo de 32 caracteres em produção), `PORT`, `NODE_ENV=production` e `CORS_ORIGINS` (origens separadas por vírgula). Instale com `npm ci`, gere o Prisma Client com `npm run build`, aplique migrações com `npm run db:deploy` e inicie com `npm start`. O endpoint `/openapi.yaml` publica o contrato da API. Promova uma conta inicial com `npm run admin:promote -- <username>`; o papel é consultado no banco em cada requisição protegida.
+
+Transações são excluídas logicamente: `DELETE /transactions/:id` define `deletedAt`, mantendo os campos `createdAt` e `updatedAt` para auditoria. Listagens, dashboard e relatórios não incluem itens excluídos.
+
 ## 1. Visão geral
 
 O backend atual utiliza **Node.js + Express + Prisma + PostgreSQL +

@@ -12,7 +12,7 @@ if (!username) {
             data: { role: 'ADMIN' },
             select: { id: true, username: true, role: true },
         });
-        console.log(`Papel atualizado: ${user.username} → ${user.role}. Faça login novamente para obter um token atualizado.`);
+        console.log(`Papel atualizado: ${user.username} → ${user.role}. A permissão é aplicada na próxima requisição autenticada.`);
     } catch (error) {
         console.error(error.code === 'P2025' ? 'Usuário não encontrado.' : 'Não foi possível promover o usuário.');
         process.exitCode = 1;

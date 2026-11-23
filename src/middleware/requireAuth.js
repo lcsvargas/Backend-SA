@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { prisma } from '../lib/client.ts';
 
 function getUserId(req) {
     const authorization = req.get('authorization');
@@ -18,23 +19,31 @@ function getUserId(req) {
     }
 }
 
-export function requireAuth(req, res, next) {
+export async function requireAuth(req, res, next) {
     const identity = getUserId(req);
 
     if (!identity) {
         return res.status(401).json({ success: false, error: 'Usuário não autenticado.' });
     }
 
-    req.userId = identity.userId;
-    req.userRole = identity.role;
-    return next();
+    try {
+        const user = await prisma.user.findUnique({ where: { id: identity.userId }, select: { role: true, deleted: true } });
+        if (!user || user.deleted) return res.status(401).json({ success: false, error: 'Usuário não autenticado.' });
+        req.userId = identity.userId;
+        req.userRole = user.role || 'USER';
+        return next();
+    } catch (error) { return next(error); }
 }
 
-export function optionalAuth(req, res, next) {
+export async function optionalAuth(req, res, next) {
     const identity = getUserId(req);
-    req.userId = identity?.userId ?? null;
-    req.userRole = identity?.role ?? null;
-    return next();
+    if (!identity) { req.userId = null; req.userRole = null; return next(); }
+    try {
+        const user = await prisma.user.findUnique({ where: { id: identity.userId }, select: { role: true, deleted: true } });
+        req.userId = user && !user.deleted ? identity.userId : null;
+        req.userRole = user && !user.deleted ? user.role : null;
+        return next();
+    } catch (error) { return next(error); }
 }
 
 export function requireRole(...roles) {

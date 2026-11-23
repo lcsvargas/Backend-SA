@@ -33,6 +33,9 @@ model Transaction {
   valor     Decimal
   data      DateTime
   tipo      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
   user User @relation(fields: [userid], references: [id])
 
@@ -40,4 +43,5 @@ model Transaction {
   @@index([userid, tipo, data])
   @@index([userid, categoria])
   @@index([userid, id])
+  @@index([userid, deletedAt, data])
 }

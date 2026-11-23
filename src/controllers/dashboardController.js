@@ -15,7 +15,7 @@ export async function getDashboard(req, res) {
     const period = getPeriod(req, res);
     if (!period) return;
     try {
-        const base = { userid: req.userId };
+        const base = { userid: req.userId, deletedAt: null };
         const range = { ...base, data: { gte: period.start, lte: period.end } };
         const [all, periodRows, categoryRows, recent] = await Promise.all([
             prisma.transaction.groupBy({ by: ['tipo'], where: base, _sum: { valor: true }, _count: { _all: true } }),
@@ -49,7 +49,7 @@ export async function getReport(req, res) {
     const period = getPeriod(req, res);
     if (!period) return;
     try {
-        const where = { userid: req.userId, data: { gte: period.start, lte: period.end } };
+        const where = { userid: req.userId, deletedAt: null, data: { gte: period.start, lte: period.end } };
         if (req.query.tipo) {
             if (!['entrada', 'saida'].includes(req.query.tipo)) return res.status(400).json({ success: false, error: 'Filtro tipo inválido.' });
             where.tipo = req.query.tipo;

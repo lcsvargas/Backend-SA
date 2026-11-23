@@ -2,7 +2,7 @@ import express from 'express';
 import 'dotenv/config';
 import cors from 'cors';
 import clr from 'connect-livereload';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { prisma } from './lib/client.ts';
 import authRoutes from './routes/authRoutes.js';
 import transactionRoutes from './routes/transactionRoutes.js';
@@ -10,12 +10,13 @@ import dashboardRoutes from './routes/dashboardRoutes.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 const app = express();
+app.disable('x-powered-by');
 const port = process.env.PORT || 3000;
 
-const allowedOrigins = [
+const allowedOrigins = (process.env.CORS_ORIGINS || [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
-];
+].join(',')).split(',').map(origin => origin.trim()).filter(Boolean);
 
 app.use(cors({
     origin(origin, callback) {
@@ -23,15 +24,15 @@ app.use(cors({
             return callback(null, true);
         }
 
-        return callback(new Error('Origin not allowed by CORS'));
+            return callback(Object.assign(new Error('Origin not allowed by CORS'), { status: 403 }));
     },
     credentials: true,
 }));
 
 app.use(express.static('public'));
 if (process.env.NODE_ENV !== 'production') app.use(clr());
-app.use(express.json());
-app.get('/openapi.yaml', (req, res) => res.sendFile(new URL('../openapi.yaml', import.meta.url).pathname));
+app.use(express.json({ limit: '1mb' }));
+app.get('/openapi.yaml', (req, res) => res.sendFile(fileURLToPath(new URL('../openapi.yaml', import.meta.url))));
 app.use(authRoutes);
 app.use('/transactions', transactionRoutes);
 app.use('/dashboard', dashboardRoutes);
@@ -45,6 +46,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         if (!process.env.JWT_SECRET) {
             throw new Error('JWT_SECRET não está definida no .env.');
         }
+        if (process.env.NODE_ENV === 'production' && process.env.JWT_SECRET.length < 32) {
+            throw new Error('JWT_SECRET deve ter pelo menos 32 caracteres em produção.');
+        }
+        if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL não está definida no .env.');
 
         await prisma.$connect();
         app.listen(port, () => {

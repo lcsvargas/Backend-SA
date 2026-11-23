@@ -1,11 +1,14 @@
 import { prisma } from '../lib/client.ts';
 
 function parseTransaction(body) {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return { error: 'Corpo da requisição inválido.' };
     const { categoria, descricao, valor, data, tipo } = body;
     const amount = Number(valor);
     const transactionDate = new Date(data);
 
-    if (!categoria || !descricao || !data || !['entrada', 'saida'].includes(tipo) || !Number.isFinite(amount) || amount <= 0 || Number.isNaN(transactionDate.getTime())) {
+    if (typeof categoria !== 'string' || !categoria.trim() || categoria.length > 100
+        || typeof descricao !== 'string' || !descricao.trim() || descricao.length > 255
+        || !data || !['entrada', 'saida'].includes(tipo) || !Number.isFinite(amount) || amount <= 0 || Number.isNaN(transactionDate.getTime())) {
         return { error: 'Dados da transação inválidos.' };
     }
 
@@ -42,7 +45,7 @@ function parseListQuery(req) {
     if (!Number.isInteger(page) || page < 1 || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) {
         throw Object.assign(new Error('page deve ser >= 1 e pageSize deve estar entre 1 e 100.'), { status: 400 });
     }
-    const where = { userid: req.userId };
+    const where = { userid: req.userId, deletedAt: null };
     if (query.tipo) {
         if (!['entrada', 'saida'].includes(query.tipo)) throw Object.assign(new Error('Filtro tipo inválido.'), { status: 400 });
         where.tipo = query.tipo;
@@ -98,7 +101,7 @@ export async function updateTransaction(req, res) {
             return res.status(400).json({ success: false, error });
         }
 
-        const where = { id, userid: req.userId };
+        const where = { id, userid: req.userId, deletedAt: null };
         const result = await prisma.transaction.updateMany({
             where,
             data: parsed.data,
@@ -123,8 +126,9 @@ export async function deleteTransaction(req, res) {
             return res.status(404).json({ success: false, error: 'Transação não encontrada.' });
         }
 
-        const result = await prisma.transaction.deleteMany({
-            where: { id, userid: req.userId },
+        const result = await prisma.transaction.updateMany({
+            where: { id, userid: req.userId, deletedAt: null },
+            data: { deletedAt: new Date() },
         });
 
         if (result.count === 0) {

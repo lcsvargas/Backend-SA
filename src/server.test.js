@@ -52,6 +52,7 @@ test('JWT authentication protects user and transaction routes and isolates CRUD 
     assert.equal(registerBody.user.username, firstUsername);
     assert.equal('password' in registerBody.user, false);
     assert.ok(registerBody.token);
+    assert.equal(registerBody.user.role, 'USER');
     assert.equal(registerResponse.headers.has('set-cookie'), false);
 
     const loginResponse = await request('/auth/login', {
@@ -109,6 +110,13 @@ test('JWT authentication protects user and transaction routes and isolates CRUD 
     const pageBody = await pageResponse.json();
     assert.equal(pageBody.pagination.total, 1);
     assert.equal(pageBody.data[0].id, created.id);
+    const dateReportResponse = await request('/dashboard/reports?dataInicio=2026-09-01&dataFim=2026-09-30', { token: loginBody.token });
+    assert.equal(dateReportResponse.status, 200);
+    const dateReport = await dateReportResponse.json();
+    assert.equal(dateReport.totalRegistros, 1);
+    assert.equal(dateReport.totaisPorTipo[0].tipo, 'saida');
+    const invalidPageResponse = await request('/transactions?page=0', { token: loginBody.token });
+    assert.equal(invalidPageResponse.status, 400);
 
     const secondRegisterResponse = await request('/register', {
         method: 'POST',
@@ -117,6 +125,11 @@ test('JWT authentication protects user and transaction routes and isolates CRUD 
     });
     assert.equal(secondRegisterResponse.status, 201);
     const secondRegisterBody = await secondRegisterResponse.json();
+
+    await prisma.user.update({ where: { id: secondRegisterBody.user.id }, data: { role: 'ADMIN' } });
+    const adminListResponse = await request('/transactions/admin/users', { token: secondRegisterBody.token });
+    assert.equal(adminListResponse.status, 200);
+    assert.ok((await adminListResponse.json()).data.some(user => user.id === registerBody.user.id));
 
     const otherUserListResponse = await request('/transactions', { token: secondRegisterBody.token });
     assert.deepEqual(await otherUserListResponse.json(), []);
@@ -155,6 +168,12 @@ test('JWT authentication protects user and transaction routes and isolates CRUD 
         method: 'DELETE',
     });
     assert.equal(deleteResponse.status, 204);
+    const archived = await prisma.transaction.findUnique({ where: { id: created.id } });
+    assert.ok(archived.deletedAt);
+    assert.ok(archived.createdAt);
+    assert.ok(archived.updatedAt);
+    const reportAfterArchive = await request('/dashboard/reports?dataInicio=2026-09-01&dataFim=2026-09-30', { token: loginBody.token });
+    assert.equal((await reportAfterArchive.json()).totalRegistros, 0);
 
     const finalListResponse = await request('/transactions', { token: loginBody.token });
     assert.equal(finalListResponse.status, 200);
