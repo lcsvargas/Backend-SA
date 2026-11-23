@@ -41,7 +41,7 @@ export async function getDashboard(req, res) {
             recentes: recent,
         });
     } catch (err) {
-        return res.status(500).json({ success: false, error: err.message });
+        throw err;
     }
 }
 
@@ -66,6 +66,8 @@ export async function getReport(req, res) {
             totaisPorCategoria: byCategory.map(row => ({ categoria: row.categoria, tipo: row.tipo, total: Number(row._sum.valor || 0), quantidade: row._count._all })),
         });
     } catch (err) {
-        return res.status(500).json({ success: false, error: err.message });
+        throw err;
     }
 }
+
+

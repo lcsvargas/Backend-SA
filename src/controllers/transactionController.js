@@ -30,14 +30,18 @@ export async function listTransactions(req, res) {
         if (!Object.keys(req.query).length) return res.json(transactions);
         return res.json({ data: transactions, pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) } });
     } catch (err) {
-        return res.status(err.status || 500).json({ success: false, error: err.message });
+        if (err.status) return res.status(err.status).json({ success: false, error: err.message });
+        throw err;
     }
 }
 
 function parseListQuery(req) {
     const query = req.query;
-    const page = Math.max(1, Number.parseInt(query.page, 10) || 1);
-    const pageSize = Math.min(100, Math.max(1, Number.parseInt(query.pageSize, 10) || 20));
+    const page = query.page === undefined ? 1 : Number(query.page);
+    const pageSize = query.pageSize === undefined ? 20 : Number(query.pageSize);
+    if (!Number.isInteger(page) || page < 1 || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) {
+        throw Object.assign(new Error('page deve ser >= 1 e pageSize deve estar entre 1 e 100.'), { status: 400 });
+    }
     const where = { userid: req.userId };
     if (query.tipo) {
         if (!['entrada', 'saida'].includes(query.tipo)) throw Object.assign(new Error('Filtro tipo inválido.'), { status: 400 });
@@ -61,6 +65,8 @@ function parseListQuery(req) {
     }
     const allowedSort = ['id', 'data', 'valor', 'categoria', 'descricao'];
     const sortBy = allowedSort.includes(query.sortBy) ? query.sortBy : 'id';
+    if (query.sortBy && !allowedSort.includes(query.sortBy)) throw Object.assign(new Error('sortBy inválido.'), { status: 400 });
+    if (query.sortOrder && !['asc', 'desc'].includes(query.sortOrder)) throw Object.assign(new Error('sortOrder inválido.'), { status: 400 });
     const sortOrder = query.sortOrder === 'asc' ? 'asc' : 'desc';
     return { page, pageSize, where, orderBy: { [sortBy]: sortOrder } };
 }
@@ -78,7 +84,7 @@ export async function createTransaction(req, res) {
         });
         return res.status(201).json(transaction);
     } catch (err) {
-        return res.status(500).json({ success: false, error: err.message });
+        throw err;
     }
 }
 
@@ -105,7 +111,7 @@ export async function updateTransaction(req, res) {
         const transaction = await prisma.transaction.findFirst({ where });
         return res.json(transaction);
     } catch (err) {
-        return res.status(500).json({ success: false, error: err.message });
+        throw err;
     }
 }
 
@@ -127,6 +133,8 @@ export async function deleteTransaction(req, res) {
 
         return res.sendStatus(204);
     } catch (err) {
-        return res.status(500).json({ success: false, error: err.message });
+        throw err;
     }
 }
+
+

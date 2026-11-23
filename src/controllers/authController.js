@@ -75,7 +75,7 @@ export async function registerUser(req, res) {
             user: publicUser(user),
         });
     } catch (err) {
-        return res.status(500).json({ success: false, error: err.message });
+        throw err;
     }
 }
 
@@ -113,7 +113,7 @@ export async function login(req, res) {
             user: publicUser(user),
         });
     } catch (err) {
-        return res.status(500).json({ success: false, error: err.message });
+        throw err;
     }
 }
 
@@ -131,7 +131,7 @@ export async function getCurrentUser(req, res) {
 
         return res.json({ success: true, user: publicUser(user) });
     } catch (err) {
-        return res.status(500).json({ success: false, error: err.message });
+        throw err;
     }
 }
 
@@ -150,3 +150,4 @@ export async function checkAuth(req, res) {
         user,
     });
 }
+

@@ -15,7 +15,7 @@ router.get('/', listTransactions);
 router.post('/', createTransaction);
 router.put('/:id', updateTransaction);
 router.delete('/:id', deleteTransaction);
-router.get('/admin/all', requireRole('ADMIN'), async (req, res, next) => {
+router.get('/admin/users', requireRole('ADMIN'), async (req, res, next) => {
     try {
         const users = await prisma.user.findMany({
             where: { deleted: false }, select: { id: true, username: true, email: true, role: true },
@@ -26,3 +26,4 @@ router.get('/admin/all', requireRole('ADMIN'), async (req, res, next) => {
 });
 
 export default router;
+

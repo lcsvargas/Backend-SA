@@ -74,6 +74,17 @@ test('JWT authentication protects user and transaction routes and isolates CRUD 
     assert.equal(emptyListResponse.status, 200);
     assert.deepEqual(await emptyListResponse.json(), []);
 
+    const dashboardResponse = await request('/dashboard', { token: loginBody.token });
+    assert.equal(dashboardResponse.status, 200);
+    assert.equal((await dashboardResponse.json()).geral.quantidade, 0);
+    const reportsResponse = await request('/dashboard/reports', { token: loginBody.token });
+    assert.equal(reportsResponse.status, 200);
+    assert.equal((await reportsResponse.json()).totalRegistros, 0);
+    const forbiddenResponse = await request('/transactions/admin/users', { token: loginBody.token });
+    assert.equal(forbiddenResponse.status, 403);
+    const invalidFilterResponse = await request('/transactions?tipo=inválido', { token: loginBody.token });
+    assert.equal(invalidFilterResponse.status, 400);
+
     const invalidCreateResponse = await request('/transactions', {
         token: loginBody.token,
         method: 'POST',
@@ -92,6 +103,12 @@ test('JWT authentication protects user and transaction routes and isolates CRUD 
     const created = await createResponse.json();
     assert.equal(created.categoria, 'Teste');
     assert.equal(Number(created.valor), 12.5);
+
+    const pageResponse = await request('/transactions?page=1&pageSize=1&q=Criada&tipo=saida', { token: loginBody.token });
+    assert.equal(pageResponse.status, 200);
+    const pageBody = await pageResponse.json();
+    assert.equal(pageBody.pagination.total, 1);
+    assert.equal(pageBody.data[0].id, created.id);
 
     const secondRegisterResponse = await request('/register', {
         method: 'POST',
