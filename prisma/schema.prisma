@@ -20,6 +20,7 @@ model User {
   password    String
   pfp         String?       @default("/images/pfpdefault.jpg")
   deleted     Boolean       @default(false)
+  role        String        @default("USER") @db.VarChar(20)
 
   transactions Transaction[]
 }
@@ -34,4 +35,9 @@ model Transaction {
   tipo      String
 
   user User @relation(fields: [userid], references: [id])
+
+  @@index([userid, data])
+  @@index([userid, tipo, data])
+  @@index([userid, categoria])
+  @@index([userid, id])
 }

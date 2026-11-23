@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { prisma } from './lib/client.ts';
 import authRoutes from './routes/authRoutes.js';
 import transactionRoutes from './routes/transactionRoutes.js';
+import dashboardRoutes from './routes/dashboardRoutes.js';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -31,6 +32,7 @@ app.use(clr());
 app.use(express.json());
 app.use(authRoutes);
 app.use('/transactions', transactionRoutes);
+app.use('/dashboard', dashboardRoutes);
 
 export default app;
 

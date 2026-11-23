@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/client.ts';
 
 function createToken(user) {
-    return jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+    return jwt.sign({ userId: user.id, role: user.role || 'USER' }, process.env.JWT_SECRET, { expiresIn: '1d' });
 }
 
 function publicUser(user) {
@@ -14,6 +14,7 @@ function publicUser(user) {
         displayname: user.displayname,
         email: user.email,
         pfp: user.pfp,
+        role: user.role || 'USER',
     };
 }
 

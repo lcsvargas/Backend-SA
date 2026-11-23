@@ -22,14 +22,47 @@ function parseTransaction(body) {
 
 export async function listTransactions(req, res) {
     try {
-        const transactions = await prisma.transaction.findMany({
-            where: { userid: req.userId },
-            orderBy: { id: 'desc' },
-        });
-        return res.json(transactions);
+        const { page, pageSize, where, orderBy } = parseListQuery(req);
+        const [transactions, total] = await Promise.all([
+            prisma.transaction.findMany({ where, orderBy, skip: (page - 1) * pageSize, take: pageSize }),
+            prisma.transaction.count({ where }),
+        ]);
+        if (!Object.keys(req.query).length) return res.json(transactions);
+        return res.json({ data: transactions, pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) } });
     } catch (err) {
-        return res.status(500).json({ success: false, error: err.message });
+        return res.status(err.status || 500).json({ success: false, error: err.message });
     }
+}
+
+function parseListQuery(req) {
+    const query = req.query;
+    const page = Math.max(1, Number.parseInt(query.page, 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, Number.parseInt(query.pageSize, 10) || 20));
+    const where = { userid: req.userId };
+    if (query.tipo) {
+        if (!['entrada', 'saida'].includes(query.tipo)) throw Object.assign(new Error('Filtro tipo inválido.'), { status: 400 });
+        where.tipo = query.tipo;
+    }
+    if (query.categoria) where.categoria = { equals: String(query.categoria).slice(0, 100), mode: 'insensitive' };
+    if (query.q) where.OR = ['descricao', 'categoria'].map(field => ({ [field]: { contains: String(query.q).slice(0, 100), mode: 'insensitive' } }));
+    if (query.dataInicio || query.dataFim) {
+        where.data = {};
+        if (query.dataInicio) {
+            const start = new Date(query.dataInicio);
+            if (Number.isNaN(start.getTime())) throw Object.assign(new Error('dataInicio inválida.'), { status: 400 });
+            where.data.gte = start;
+        }
+        if (query.dataFim) {
+            const end = new Date(query.dataFim);
+            if (Number.isNaN(end.getTime())) throw Object.assign(new Error('dataFim inválida.'), { status: 400 });
+            end.setUTCHours(23, 59, 59, 999);
+            where.data.lte = end;
+        }
+    }
+    const allowedSort = ['id', 'data', 'valor', 'categoria', 'descricao'];
+    const sortBy = allowedSort.includes(query.sortBy) ? query.sortBy : 'id';
+    const sortOrder = query.sortOrder === 'asc' ? 'asc' : 'desc';
+    return { page, pageSize, where, orderBy: { [sortBy]: sortOrder } };
 }
 
 export async function createTransaction(req, res) {
