@@ -1,0 +1,101 @@
+openapi: 3.0.3
+info:
+  title: FinTech Flow API
+  version: 1.0.0
+  description: API para autenticação, transações, dashboard e relatórios financeiros.
+servers:
+  - url: http://localhost:3000
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        error: { type: string }
+    Transaction:
+      type: object
+      properties:
+        id: { type: integer }
+        userid: { type: integer }
+        categoria: { type: string }
+        descricao: { type: string }
+        valor: { type: number }
+        data: { type: string, format: date-time }
+        tipo: { type: string, enum: [entrada, saida] }
+security:
+  - bearerAuth: []
+paths:
+  /auth/login:
+    post:
+      security: []
+      summary: Autentica e retorna JWT
+      responses:
+        '200': { description: Login efetuado }
+        '400': { description: Entrada inválida }
+        '401': { description: Credenciais inválidas }
+  /auth/register:
+    post:
+      security: []
+      summary: Cria usuário com papel USER
+      responses:
+        '201': { description: Usuário criado }
+        '400': { description: Entrada inválida }
+        '409': { description: Usuário ou e-mail já cadastrado }
+  /transactions:
+    get:
+      summary: Lista transações do usuário autenticado
+      parameters:
+        - { in: query, name: page, schema: { type: integer, minimum: 1 } }
+        - { in: query, name: pageSize, schema: { type: integer, minimum: 1, maximum: 100 } }
+        - { in: query, name: q, schema: { type: string }, description: Busca em descrição e categoria }
+        - { in: query, name: tipo, schema: { type: string, enum: [entrada, saida] } }
+        - { in: query, name: categoria, schema: { type: string } }
+        - { in: query, name: dataInicio, schema: { type: string, format: date } }
+        - { in: query, name: dataFim, schema: { type: string, format: date } }
+        - { in: query, name: sortBy, schema: { type: string, enum: [id, data, valor, categoria, descricao] } }
+        - { in: query, name: sortOrder, schema: { type: string, enum: [asc, desc] } }
+      responses:
+        '200': { description: Lista ou envelope paginado de transações }
+        '401': { description: Não autenticado }
+    post:
+      summary: Cria transação
+      responses:
+        '201': { description: Transação criada }
+        '400': { description: Entrada inválida }
+  /transactions/{id}:
+    put:
+      summary: Atualiza transação própria
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: Transação atualizada }
+        '404': { description: Transação não encontrada }
+    delete:
+      summary: Exclui transação própria
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      responses:
+        '204': { description: Excluída }
+        '404': { description: Transação não encontrada }
+  /dashboard:
+    get:
+      summary: Retorna agregações financeiras do usuário
+      responses:
+        '200': { description: Dashboard }
+        '401': { description: Não autenticado }
+  /dashboard/reports:
+    get:
+      summary: Retorna totais por período, tipo e categoria
+      responses:
+        '200': { description: Relatório }
+  /transactions/admin/users:
+    get:
+      summary: Lista usuários (ADMIN)
+      responses:
+        '200': { description: Usuários }
+        '403': { description: Papel ADMIN obrigatório }
