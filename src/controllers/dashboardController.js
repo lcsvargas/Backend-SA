@@ -24,11 +24,12 @@ export async function getDashboard(req, res) {
             prisma.transaction.findMany({ where: base, orderBy: [{ data: 'desc' }, { id: 'desc' }], take: 5 }),
         ]);
         const totals = rows => {
-            const result = { entradas: 0, saidas: 0, saldo: 0, quantidade: 0 };
+            const result = { entradas: 0, saidas: 0, saldo: 0, quantidade: 0, quantidadeEntradas: 0, quantidadeSaidas: 0 };
             for (const row of rows) {
                 const value = Number(row._sum.valor || 0);
                 result[row.tipo === 'entrada' ? 'entradas' : 'saidas'] = value;
                 result.quantidade += row._count._all;
+                result[row.tipo === 'entrada' ? 'quantidadeEntradas' : 'quantidadeSaidas'] = row._count._all;
             }
             result.saldo = result.entradas - result.saidas;
             return result;
