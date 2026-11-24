@@ -1,7 +1,6 @@
 import express from 'express';
 import 'dotenv/config';
 import cors from 'cors';
-import clr from 'connect-livereload';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { prisma } from './lib/client.ts';
 import authRoutes from './routes/authRoutes.js';
@@ -30,8 +29,19 @@ app.use(cors({
 }));
 
 app.use(express.static('public'));
-if (process.env.NODE_ENV !== 'production') app.use(clr());
+if (process.env.NODE_ENV !== 'production') {
+    const { default: liveReload } = await import('connect-livereload');
+    app.use(liveReload());
+}
 app.use(express.json({ limit: '1mb' }));
+app.get('/health', async (req, res) => {
+    try {
+        await prisma.$queryRaw`SELECT 1`;
+        return res.status(200).json({ status: 'ok' });
+    } catch {
+        return res.status(503).json({ status: 'unavailable' });
+    }
+});
 app.get('/openapi.yaml', (req, res) => res.sendFile(fileURLToPath(new URL('../openapi.yaml', import.meta.url))));
 app.use(authRoutes);
 app.use('/transactions', transactionRoutes);
@@ -50,6 +60,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
             throw new Error('JWT_SECRET deve ter pelo menos 32 caracteres em produção.');
         }
         if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL não está definida no .env.');
+        if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGINS?.trim()) {
+            throw new Error('CORS_ORIGINS deve listar a origem HTTPS do frontend em produção.');
+        }
 
         await prisma.$connect();
         app.listen(port, () => {

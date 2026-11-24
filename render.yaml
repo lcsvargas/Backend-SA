@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: safecash-api
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build && npm run db:deploy && npm prune --omit=dev
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false

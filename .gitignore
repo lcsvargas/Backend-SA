@@ -1,4 +1,7 @@
 node_modules
-.env
+.env*
+!.env.example
 database.db
 /generated/prisma
+coverage
+*.log

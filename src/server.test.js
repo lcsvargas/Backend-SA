@@ -30,6 +30,10 @@ test('JWT authentication protects user and transaction routes and isolates CRUD 
     server = app.listen(0);
     await new Promise(resolve => server.once('listening', resolve));
 
+    const healthResponse = await request('/health');
+    assert.equal(healthResponse.status, 200);
+    assert.deepEqual(await healthResponse.json(), { status: 'ok' });
+
     const unauthorizedResponse = await request('/auth/me');
     assert.equal(unauthorizedResponse.status, 401);
     const invalidTokenResponse = await request('/auth/me', { token: 'invalid-token' });

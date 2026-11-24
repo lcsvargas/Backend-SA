@@ -2,7 +2,15 @@
 
 ## Configuração de produção
 
-Defina `DATABASE_URL`, `JWT_SECRET` (mínimo de 32 caracteres em produção), `PORT`, `NODE_ENV=production` e `CORS_ORIGINS` (origens separadas por vírgula). Instale com `npm ci`, gere o Prisma Client com `npm run build`, aplique migrações com `npm run db:deploy` e inicie com `npm start`. O endpoint `/openapi.yaml` publica o contrato da API. Promova uma conta inicial com `npm run admin:promote -- <username>`; o papel é consultado no banco em cada requisição protegida.
+Defina `DATABASE_URL`, `JWT_SECRET` (mínimo de 32 caracteres em produção), `NODE_ENV=production` e `CORS_ORIGINS` (origens HTTPS exatas do frontend, separadas por vírgula). O host fornece `PORT`. Instale com `npm ci`, gere o Prisma Client com `npm run build`, aplique migrações com `npm run db:deploy` e inicie com `npm start`. O endpoint `/health` verifica a conexão com PostgreSQL; `/openapi.yaml` publica o contrato da API. O arquivo `.env.example` lista os nomes das variáveis locais sem credenciais válidas.
+
+### Deploy no Render
+
+O `render.yaml` configura um serviço Node gratuito para demonstração, build, migrações e health check. Na criação do Blueprint, informe `DATABASE_URL` do PostgreSQL e `CORS_ORIGINS` com o domínio publicado do frontend (por exemplo, `https://safecash.vercel.app`). O Render gera `JWT_SECRET`. O arquivo `.node-version` seleciona a linha Node 22. O serviço gratuito pode dormir após inatividade; para produção com disponibilidade contínua, selecione um plano pago. Use um PostgreSQL persistente com backup para armazenar dados financeiros. O build instala as ferramentas de desenvolvimento só para gerar o cliente e aplicar migrações, e depois remove as dependências de desenvolvimento da imagem publicada.
+
+Para promover um administrador, execute `npm run admin:promote -- <username>` em um ambiente com acesso seguro ao banco de produção. O papel é consultado no banco em cada requisição protegida, portanto a alteração tem efeito na próxima requisição autenticada.
+
+Não execute `npm run seed` em produção: ele cria usuários e transações de demonstração com senha conhecida de desenvolvimento.
 
 Transações são excluídas logicamente: `DELETE /transactions/:id` define `deletedAt`, mantendo os campos `createdAt` e `updatedAt` para auditoria. Listagens, dashboard e relatórios não incluem itens excluídos.
 
