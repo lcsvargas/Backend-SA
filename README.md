@@ -1,4 +1,14 @@
-# FinançaS --- Documentação do Backend
+# SafeCash — Documentação do Backend
+
+## Projeto publicado
+
+- **Site:** https://safecash3b.netlify.app/
+- **API:** https://backend-sa-lkje.onrender.com
+- **Health check:** https://backend-sa-lkje.onrender.com/health
+- **OpenAPI:** https://backend-sa-lkje.onrender.com/openapi.yaml
+- **Banco:** PostgreSQL hospedado no Supabase; o acesso da aplicação é feito pelo backend via Prisma.
+
+O endpoint `/health` retorna `{"status":"ok"}` quando a API consegue consultar o banco. As migrações versionadas em `prisma/migrations` são aplicadas com `npm run db:deploy`. O deploy atual é feito como Web Service no Render, portanto as variáveis de ambiente são configuradas no painel do serviço.
 
 ## Configuração de produção
 
@@ -6,7 +16,7 @@ Defina `DATABASE_URL`, `JWT_SECRET` (mínimo de 32 caracteres em produção), `N
 
 ### Deploy no Render
 
-O `render.yaml` configura um serviço Node gratuito para demonstração, build, migrações e health check. Na criação do Blueprint, informe `DATABASE_URL` do PostgreSQL e `CORS_ORIGINS` com o domínio publicado do frontend (por exemplo, `https://safecash.vercel.app`). O Render gera `JWT_SECRET`. O arquivo `.node-version` seleciona a linha Node 22. O serviço gratuito pode dormir após inatividade; para produção com disponibilidade contínua, selecione um plano pago. Use um PostgreSQL persistente com backup para armazenar dados financeiros. O build instala as ferramentas de desenvolvimento só para gerar o cliente e aplicar migrações, e depois remove as dependências de desenvolvimento da imagem publicada.
+O `render.yaml` documenta a configuração Blueprint alternativa. O serviço publicado foi criado como Web Service; configure `DATABASE_URL`, `JWT_SECRET` (mínimo de 32 caracteres), `NODE_ENV=production` e `CORS_ORIGINS=https://safecash3b.netlify.app` no painel do Render. O Render fornece `PORT`. O arquivo `.node-version` seleciona a linha Node 22. Use PostgreSQL persistente com backup para dados que precisem ser mantidos.
 
 Para promover um administrador, execute `npm run admin:promote -- <username>` em um ambiente com acesso seguro ao banco de produção. O papel é consultado no banco em cada requisição protegida, portanto a alteração tem efeito na próxima requisição autenticada.
 
