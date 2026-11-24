@@ -2,6 +2,7 @@
 
 ## Projeto publicado
 
+- **Vídeo Demonstrativo:** https://drive.google.com/file/d/1ExJLDZD8T8nJT7cj_61qfOAIg0TyBrAU/view?usp=sharing
 - **Site:** https://safecash3b.netlify.app/
 - **API:** https://backend-sa-lkje.onrender.com
 - **Health check:** https://backend-sa-lkje.onrender.com/health
